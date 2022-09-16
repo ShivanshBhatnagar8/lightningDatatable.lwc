@@ -1,0 +1,19 @@
+<template>
+    <lightning-card title="AccountDataTable" icon-name="custom:custom63">
+        <div class="slds-m-around_medium">
+        <template  if:true={isLoading}>
+            <lightning-spinner alternative-text="Loading" size="medium" variant="brand"></lightning-spinner>
+        </template>
+        <template if:true={data}>
+        <lightning-datatable data={data}  columns={columns} key-field="Id"  onsave={handleSave} draft-values={draftValues} onrowaction={handleRowAction}>
+      </lightning-datatable>
+    </template>
+    </div>
+    <div>
+        <p class="slds-m-vertical_medium content">
+            Displaying {startingRecord} to {endingRecord} of {totalRecountCount} records.
+            Page {page} of {totalPage}. </p>
+            <c-pagination onprevious={previousHandler} onnext={nextHandler}></c-pagination>
+    </div>
+</lightning-card>
+</template>
