@@ -1,0 +1,53 @@
+public class AccountController {
+    
+        @AuraEnabled(cacheable=true)
+        public static List<Account> getAccountList() {
+            return [ Select Id ,Name, Rating, Industry, Phone From Account  ];
+        }
+
+        @AuraEnabled 
+        public static void deleteAccounts(Account acc){
+             
+           try { 
+            delete acc;
+    
+        } catch (Exception e) {
+            throw new AuraHandledException(e.getMessage());
+        }
+    }
+    
+
+        @AuraEnabled
+        public static void updateAccount(String accIds){
+            List<Account> accList =   [ Select Id ,Name, Rating, Industry, Phone From Account WHERE Id =:accIds];
+            try { 
+           update accList;
+     
+         } catch (Exception e) {
+             throw new AuraHandledException(e.getMessage());
+         }
+     }
+
+                       //For file preview and DownLoad
+
+                   
+       @AuraEnabled (cacheable=true)
+       public static  Map<ID, String> getFilesByRecord(String recordId) {
+        // Get record file IDs        
+        List<ContentDocumentLink> files = [SELECT ContentDocumentId FROM ContentDocumentLink WHERE LinkedEntityId = :recordId];
+        List<ID> fileIDs = new List<ID>();
+        for (ContentDocumentLink docLink : files) {
+            fileIDs.add(docLink.ContentDocumentId);
+        }
+ 
+        List<ContentVersion> docs = [SELECT ContentDocumentId, FileExtension, Title 
+            FROM ContentVersion WHERE ContentDocumentId IN : fileIDs];
+        Map<ID, String> mapIdTitle = new Map<ID, String>();
+        for (ContentVersion docLink : docs) {
+            mapIdTitle.put(docLink.ContentDocumentId, docLink.Title);
+        }
+        return mapIdTitle;
+    }
+                                     
+}  
+
