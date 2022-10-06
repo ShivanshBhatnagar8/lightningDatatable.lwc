@@ -1,33 +1,34 @@
 import { LightningElement, wire,api,track } from 'lwc';
 import getAccountList from '@salesforce/apex/AccountController.getAccountList';   
 import deleteAccounts from '@salesforce/apex/AccountController.deleteAccounts';
-import getFilesByRecord from '@salesforce/apex/AccountController.getFilesByRecord';
 import {NavigationMixin} from 'lightning/navigation';
 import { updateRecord } from 'lightning/uiRecordApi' ;
 import { ShowToastEvent } from 'lightning/platformShowToastEvent';
 import { refreshApex } from '@salesforce/apex';
-import NAME_FIELD from '@salesforce/schema/Account.Name';
-import RATING_FIELD from '@salesforce/schema/Account.Rating';
-import INDUSTRY_FIELD from '@salesforce/schema/Account.Industry';
-import PHONE_FIELD from '@salesforce/schema/Account.Phone';
+
 
  
                              //Array for row Actions
 
 
-const actions = [                            
+const actions = [ 
+    {label: 'Preview', name:'Preview'},
+    {label: 'Download' , name:'Download'},                           
     { label: 'Delete', name: 'delete'},
-    { label: 'Edit', name: 'edit'}]
+    { label: 'Edit', name: 'edit'}
+    
+    ]
  
       //Columns for fields to be display in lightning DATATABLE
     const columns = [
-    { label: 'Account Name', fieldName: NAME_FIELD.fieldApiName, type:'text', editable:'true' },
-    { label: 'Rating', fieldName: RATING_FIELD.fieldApiName, type: 'text', editable:'true' },
-    { label: 'Phone', fieldName: PHONE_FIELD.fieldApiName, type: 'phone', editable:'true' },
-    { label: 'Industry', fieldName: INDUSTRY_FIELD.fieldApiName, type: 'text', editable:'true'  },
+    { label: 'Account Name', fieldName:'Name', type:'text', editable:'true' },
+    { label: 'Rating', fieldName: 'Rating', type: 'text', editable:'true' },
+    { label: 'Phone', fieldName: 'Phone', type: 'phone', editable:'true' },
+    { label: 'Industry', fieldName: 'Industry', type: 'text', editable:'true'  },
     { type: 'action',  typeAttributes: {  rowActions:actions }},
-    { label:  'Preview',type: 'button',initialWidth: 135, typeAttributes: { label: 'Preview File', name: 'view_file', title: 'Click to View Details' }},
-    {  label: 'Download',type: 'button-icon', initialWidth: 135,typeAttributes: { iconName: 'utility:download', name: 'download_file', title: 'Click to download' }}  
+   // { label:  'Preview',type: 'button',initialWidth: 135, typeAttributes: { label: 'Preview File', name: 'view_file', title: 'Click to View Details' }},
+   // {  label: 'Download',type: 'button-icon', initialWidth: 135,typeAttributes: { iconName: 'utility:download', name: 'download_file', title: 'Click to download' }}  
+   
 ];  
 export default class lightningAccountDataTable extends NavigationMixin (LightningElement) {
       
@@ -47,44 +48,20 @@ export default class lightningAccountDataTable extends NavigationMixin (Lightnin
     @track error;
     draftValues = []; // Contains record to update(for inline editing)
      @api recordId; //@api make property public.
+     @api FileId;
    filesList = [];
     
-     
-     @wire(getFilesByRecord, {recordId: '$recordId'})
-     wiredResult({data, error}){ 
-         if(data){ 
-            console.log(data)
-            this.filesList = Object.keys(data).map(item=>({"label":data[item],
-            "value": item,
-            "url":`/sfc/servlet.shepherd/document/download/${item}`
-           }))
-           console.log(this.filesList)
-           
-           this.filesList.forEach(file => {
-            file.downloadUrl = 'sfc/servlet.shepherd/document/download/'+file.value;
-            console.log(file.url)
-            console.log(file.value);
-            console.log(file.downloadUrl)
-            console.log(file);
-            
-           
-
-           });
-    
-           
-            }
-
-     if(error){ 
-        console.log(error)
-    }
-    }
-      
-    
-     
-     @wire (getAccountList)
+       @wire (getAccountList)
       wiredAccounts({ data,error}) {
             if (data) {
+                let temprecords = data;
+                this.filesList= temprecords.map(row=>{
+                  
+      return Object.assign({Id:row.Id,AccountName:row.Name,Rating:row.Rating,Phone:row.Phone,Industry:row.Industry,fileId:row.CombinedAttachments!=undefined?row.CombinedAttachments[0].Id:" "})});
                
+                 this.data = this.filesList;
+                 console.log(this.data);
+
                  
                 this.items = data; //Assigning account's data coming from apex controller to items array
                 this.totalRecountCount = data.length; //Assigning Account's record size to totalRecordCount i.e 560 records
@@ -97,7 +74,6 @@ export default class lightningAccountDataTable extends NavigationMixin (Lightnin
                 this.data = this.items.slice(0,this.pageSize); //Here we are assigning the elements(which are the records) of item arrays to data array.
                 this.endingRecord = this.pageSize; //page size is 10 and the ending record will be the 10th record of the page 
                 this.columns = columns; // Assigning columns array  to columns variable to show data in the datatable
-    
                 this.error = undefined; // Assigning undefined value to an error variable
             } else if (error) {
                 this.error = error; // Assigning value to an error parameter from error parameter, if any error occurs this condition will run
@@ -191,19 +167,34 @@ export default class lightningAccountDataTable extends NavigationMixin (Lightnin
 
           //Row Action for Lightning DataTable
          handleRowAction(event) {
-          
+          let i = 0
              const actionname = event.detail.action.name;
              const row = event.detail.row;
-             this.recordId = row.Id;
-             console.log(actionname);
+             const ContentDocumentId = row.CombinedAttachments[i].Id;
                switch (actionname) {
-                case 'view_file':
-                     this. previewHandler(row);
+                case 'Preview':
+                    if(row.CombinedAttachments[0].Id!=undefined){
+                    this[NavigationMixin.Navigate]({ 
+                        type:'standard__namedPage',
+                        attributes:{ 
+                            pageName:'filePreview'
+                        },
+                        state:{ 
+                            recordIds:ContentDocumentId
+                        
+                        }
+                    
+                        
+                    })
+                }else{
+                    this.dispatchErrorToast('File cannot be Previewed, Please attached a file and then try again ');
+                }
                     
                      break;
                    case 'download_file':
-                     this.downloadFile(row);
-                     break;
+                    window.open('/sfc/servlet.shepherd/document/download/'+ContentDocumentId,'_blank');
+                     
+                    break;
                        case 'edit':
                         this[NavigationMixin.Navigate]({
                                      type: 'standard__recordPage',
@@ -224,27 +215,7 @@ export default class lightningAccountDataTable extends NavigationMixin (Lightnin
         }
          
        
-    previewHandler(file){
-      
-        this[NavigationMixin.Navigate]({ 
-            type:'standard__namedPage',
-            attributes:{ 
-                pageName:'filePreview'
-            },
-            state:{ 
-                selectedRecordId:file.value
-            
-            }
-            
-        })
-       
-           
-        
-    }
-         
-        
-        
-            downloadFile(file){
+     downloadFile(file){
                 this[NavigationMixin.Navigate]({ 
                     type:'standard__webPage',
                     attributes:{ 
